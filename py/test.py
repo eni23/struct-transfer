@@ -2,7 +2,6 @@
 import sys
 import time
 import serial
-import struct
 import pyavrstruct
 from pprint import pprint
 
@@ -27,15 +26,14 @@ def open_serial():
 
 def main():
 
-    structs = pyavrstruct.CacheStruct("../src/main.cpp", ".")
+    structs = pyavrstruct.CacheStruct( "../src/main.cpp", "." )
 
-    s_unp = structs.get_unpack_str(STRUCT_NAME)
-    s_ord = structs.get_item_order(STRUCT_NAME)
-    s_len = structs.get_bytelen(STRUCT_NAME)
+    s_ord = structs.get_item_order( STRUCT_NAME )
+    s_len = structs.get_bytelen( STRUCT_NAME )
 
     ser = open_serial()
-    ser.write([4])
-    dl = ser.read(1)
+    ser.write([51])
+    time.sleep(0.05)
     data = ser.read(s_len)
     ser.close()
 
@@ -43,7 +41,7 @@ def main():
 
     res = structs.unpack( STRUCT_NAME, data )
     for var_name in s_ord:
-        print( "   {0}: {1}".format(var_name, res[var_name]) )
+        print( "  {0}: {1}".format( var_name, res[var_name]) )
 
 
 

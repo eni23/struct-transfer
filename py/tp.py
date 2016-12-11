@@ -290,14 +290,12 @@ def main():
     print("Item order:{0}\n".format(s_ord))
 
     ser = open_serial()
-    msg = struct.pack("=B", 4)
+    msg = struct.pack("=B", 51)
     ser.write(msg)
-    dl = ser.read(1)
-    dlen = struct.unpack("=B",dl)[0]
-    data = ser.read(dlen)
+    data = ser.read(s_len)
     ser.close()
 
-    print("\nRecived total:{0} (calculated={1})\n".format(dlen, s_len))
+    print("\nRecived total:{0} (calculated)\n".format(s_len))
     print("Recived data:\n{0}\n\nresult:".format(data))
 
     res = structs.unpack( STRUCT_NAME, data )

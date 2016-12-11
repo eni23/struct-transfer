@@ -47,8 +47,8 @@ struct RCONFIG {
 void send_struct(){
   char b[sizeof(struct_data)];
   memcpy(b, &struct_data, sizeof(struct_data));
-  Serial.write(sizeof(struct_data));
-  delay(10);
+  //Serial.write(sizeof(struct_data));
+  //delay(10);
   for (int i=0; i<(sizeof(b)+1); i++){
     Serial.write(b[i]);
   }
@@ -67,7 +67,7 @@ void loop() {
     switch (serial_command) {
 
       // on
-      case 4:
+      case 51:
         send_struct();
         break;
 
