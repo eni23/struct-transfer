@@ -1,1 +1,4 @@
 .pioenvs
+__pycache__/
+
+*.scache.yml

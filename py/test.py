@@ -1,34 +1,51 @@
 #!/usr/bin/env python
 import sys
 import time
-import struct
 import serial
-import bitstring
+import struct
+import pyavrstruct
+from pprint import pprint
 
 
-try:
-    ser = serial.Serial(
-        port='/dev/ttyUSB0',
-        baudrate=19200
-    )
-except:
-    print("Opening serial port failed")
-    sys.exit(1)
-ser.isOpen()
-time.sleep(0.5)
-print("serial ready")
+STRUCT_NAME="TTEST"
 
 
-msg = struct.pack("=B", 4)
-ser.write(msg)
-dl = ser.read(1)
-dlen = struct.unpack("=B",dl)[0]
-data = ser.read(dlen)
-bitstr = bitstring.BitArray(data)
-unpacked = bitstr.unpack('3*uintle:8, 6*uintle:8, 1*uintle:16, 1*uintle:8, 1*uintle:16, 1*uintle:32')
+def open_serial():
+    try:
+        ser = serial.Serial(
+            port='/dev/ttyUSB0',
+            baudrate=19200
+        )
+    except:
+        print("Opening serial port failed")
+        sys.exit(1)
+    ser.isOpen()
+    time.sleep(0.5)
+    print("serial ready")
+    return ser
 
-print(unpacked)
+
+def main():
+
+    structs = pyavrstruct.CacheStruct("../src/main.cpp", ".")
+
+    s_unp = structs.get_unpack_str(STRUCT_NAME)
+    s_ord = structs.get_item_order(STRUCT_NAME)
+    s_len = structs.get_bytelen(STRUCT_NAME)
+
+    ser = open_serial()
+    ser.write([4])
+    dl = ser.read(1)
+    data = ser.read(s_len)
+    ser.close()
+
+    print("Recived data:\n{0}\n\nresult:".format(data))
+
+    res = structs.unpack( STRUCT_NAME, data )
+    for var_name in s_ord:
+        print( "   {0}: {1}".format(var_name, res[var_name]) )
 
 
 
-ser.close()
+if __name__ == "__main__":
+    main()

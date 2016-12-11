@@ -9,9 +9,7 @@ import pprint
 import bitstring
 import yaml
 
-SOURCE_FILE="../src/main.cpp"
-STRUCT_NAME="TTEST"
-TESTDATA = b'01\x00\x01\n\t\x05\xf1\x16\xd2\x04\x00+\x1aF\xae\x08\x00\xc9*\xa7D\xc9\xff'
+
 
 
 class StructParser:
@@ -88,6 +86,17 @@ class StructParser:
         return c_bytes
 
 
+    def load_yaml(self, yaml_obj):
+        self.structs = {}
+        self.unpack_str = {}
+        self.unpacked_raw = {}
+        self.item_order = {}
+        for name, data in yaml_obj["struct"].items():
+            self.item_order[name] = data["order"]
+            self.structs[name] = data["data"]
+        self.build_unpack_strings()
+
+
     def build_yaml(self, default_flow_style=False):
         yd = {}
         if self.filename:
@@ -101,7 +110,7 @@ class StructParser:
             yi[name]["order"] = self.item_order[name]
             yi[name]["data"] = data
 
-        return yaml.dump(yd, default_flow_style=default_flow_style)
+        return yaml.dump(yd,default_flow_style=default_flow_style)
 
 
     def build_unpack_strings(self):
@@ -251,60 +260,57 @@ class StructParser:
 
 
 
-def open_serial():
-    try:
-        ser = serial.Serial(
-            port='/dev/ttyUSB0',
-            baudrate=19200
+
+
+
+
+class CacheStruct(StructParser):
+
+    def __init__( self, header_file, cache_dir ):
+
+        super().__init__()
+
+        cache_dir = os.path.abspath(cache_dir)
+        fname = os.path.basename(header_file)
+        fnoext = ".".join(fname.split(".")[:-1])
+        cache_file = "{0}/{1}.scache.yml".format(
+            cache_dir,
+            fnoext
         )
-    except:
-        print("Opening serial port failed")
-        sys.exit(1)
-    ser.isOpen()
-    time.sleep(0.5)
-    print("serial ready")
-    return ser
+        self.cache_file = cache_file
+        self.header_file = os.path.abspath(header_file)
+        if not os.path.isfile(cache_file):
+            print("no cache found, build new")
+            self.build_cache()
+        else:
+            print("cache found, reading")
+            cache_handle = open(self.cache_file)
+            try:
+                yml = yaml.load(cache_handle)
+            except:
+                cache_handle.close()
+                self.build_cache()
+                return
+
+            cache_handle.close()
+            if not yml:
+                self.build_cache()
+                return
+
+            real_file_mtime = int(os.path.getmtime(self.header_file))
+            if real_file_mtime ==  yml["file_mtime"]:
+                print("file time matches, load from cache")
+                self.load_yaml(yml)
+            else:
+                print("source timestamp does not match, rebuild cache")
+                self.build_cache()
 
 
-
-def main():
-
-    structs = StructParser()
-    structs.load_file(SOURCE_FILE)
-    structs.parse()
-
-    s_unp = structs.get_unpack_str(STRUCT_NAME)
-    s_dat = structs.get_struct(STRUCT_NAME)
-    s_raw = structs.get_struct_raw(STRUCT_NAME)
-    s_len = structs.get_bytelen(STRUCT_NAME)
-    s_ord = structs.get_item_order(STRUCT_NAME)
-    s_yml = structs.build_yaml()
-
-    print("Source file: {0}".format(SOURCE_FILE))
-    print("Structname: {0}\n\nRaw C source: ".format(STRUCT_NAME))
-    pprint.pprint(s_raw)
-
-    print("\nCache yaml:\n---\n{0}".format(s_yml))
-    print("\nBitstring:\n{0}\n".format(s_unp))
-    print("calculated total:{0}\n".format(s_len))
-    print("Item order:{0}\n".format(s_ord))
-
-    ser = open_serial()
-    msg = struct.pack("=B", 4)
-    ser.write(msg)
-    dl = ser.read(1)
-    dlen = struct.unpack("=B",dl)[0]
-    data = ser.read(dlen)
-    ser.close()
-
-    print("\nRecived total:{0} (calculated={1})\n".format(dlen, s_len))
-    print("Recived data:\n{0}\n\nresult:".format(data))
-
-    res = structs.unpack( STRUCT_NAME, data )
-    for var_name in s_ord:
-        print( "   {0}: {1}".format(var_name, res[var_name]) )
-
-
-
-if __name__ == "__main__":
-    main()
+    def build_cache(self):
+        print("building cache")
+        self.load_file(self.header_file)
+        self.parse()
+        yml = self.build_yaml()
+        cache_handle = open(self.cache_file, 'w')
+        cache_handle.write(yml)
+        cache_handle.close()
